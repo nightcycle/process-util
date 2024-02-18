@@ -16,6 +16,10 @@ function getStepSignal(): RBXScriptSignal
 	return if RunService:IsServer() then RunService.Heartbeat else RunService.RenderStepped
 end
 
+function getIfParallel(override: boolean?): boolean
+	return if override == nil then script:GetActor() ~= nil else override
+end
+
 function iterate(i: number, iLimit: number): (number, boolean)
 	i += 1
 	if i > iLimit then
@@ -33,7 +37,8 @@ function Util.runProcess3D(
 	processor: (x: number, y: number, z: number) -> boolean, 
 	runLimit: number, 
 	xLimit: number, yLimit: number, zLimit: number,
-	getIfDead: (() -> boolean)?
+	getIfDead: (() -> boolean)?,
+	isParallel: boolean?
 ): boolean
 
 	local isDone = false
@@ -48,7 +53,7 @@ function Util.runProcess3D(
 		yieldSignal:Destroy()
 	end
 
-	connection = getStepSignal():Connect(function()
+	local function onStep()
 		local success, msg = pcall(function()
 			local start = tick()
 			local isDead = if getIfDead then getIfDead() else false
@@ -85,8 +90,13 @@ function Util.runProcess3D(
 		elseif getIfDead and getIfDead() then
 			cleanUp()
 		end
-
-	end)
+	end
+	
+	if getIfParallel() then
+		connection = getStepSignal():ConnectParallel(onStep)
+	else
+		connection = getStepSignal():Connect(onStep)
+	end
 
 	yieldSignal:Wait()
 	return isDone
@@ -96,7 +106,8 @@ function Util.runProcess(
 	processor: (i: number) -> boolean, 
 	runLimit: number, 
 	iLimit: number,
-	getIfDead: (() -> boolean)?
+	getIfDead: (() -> boolean)?,
+	isParallel: boolean?
 ): boolean
 
 	local isDone = false
@@ -111,7 +122,7 @@ function Util.runProcess(
 		yieldSignal:Destroy()
 	end
 
-	connection = getStepSignal():Connect(function()
+	local function onStep()
 		local success, msg = pcall(function()
 			local start = tick()
 			local isDead = if getIfDead then getIfDead() else false
@@ -136,7 +147,13 @@ function Util.runProcess(
 			elseif getIfDead and getIfDead() then
 			cleanUp()
 		end
-	end)
+	end
+		
+	if getIfParallel(isParallel) then
+		connection = getStepSignal():ConnectParallel(onStep)
+	else
+		connection = getStepSignal():Connect(onStep)
+	end
 
 	yieldSignal:Wait()
 	return isDone
@@ -147,7 +164,8 @@ function Util.runItemProcess<V>(
 	initial: V,
 	processor: (v: V) -> V?, 
 	runLimit: number,
-	getIfDead: (() -> boolean)?
+	getIfDead: (() -> boolean)?,
+	isParallel: boolean?
 ): ()
 
 	local nextValue: V? = initial
@@ -161,7 +179,7 @@ function Util.runItemProcess<V>(
 		yieldSignal:Destroy()
 	end
 
-	connection = getStepSignal():Connect(function()
+	local function onStep()
 		local success, msg = pcall(function()
 			local start = tick()
 			local isDead = if getIfDead then getIfDead() else false
@@ -185,7 +203,13 @@ function Util.runItemProcess<V>(
 			elseif getIfDead and getIfDead() then
 			cleanUp()
 		end
-	end)
+	end
+
+	if getIfParallel(isParallel) then
+		connection = getStepSignal():ConnectParallel(onStep)
+	else
+		connection = getStepSignal():Connect(onStep)
+	end
 
 	yieldSignal:Wait()
 end
