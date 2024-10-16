@@ -83,15 +83,17 @@ function Util.runProcessAsync<V>(
 	local source = debug.traceback("process source", 2)
 	local function onStep()
 		local success, msg = pcall(function()
-			local start = tick()
 			local step = 0
+			local start = tick()
+			local duration = (tick() - start)
 			repeat
 				if nextValue ~= nil then
 					nextValue = processor(nextValue)
 					step += 1
 				end
-			until (step+1)*((tick()-start)/(step)) > budget or nextValue==nil
-			if step == 1 and nextValue then
+				duration = (tick() - start)
+			until (step+1)*(duration/(step)) > budget or nextValue==nil
+			if step == 1 and duration > budget and nextValue then
 				warn(`runProcessAsync: a single process run took longer than ms budget, budget={budgetMs}ms, actual={math.round((tick() - start) * 1000 * 100) / 100}ms`)
 				print(source)
 			end
