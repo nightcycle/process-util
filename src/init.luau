@@ -19,6 +19,37 @@ end
 -- Class
 local Util = {}
 
+function Util.runIteratorAsync<V>(
+	list: {V},
+	processor: (i: number, v: V) -> (),
+	budgetMs: number,
+	onFinishInvoke: ((isComplete: boolean) -> ())?,
+	isParallel: boolean?,
+	stepSignal: RBXScriptSignal?
+): ()
+	if #list == 0 then
+		if onFinishInvoke then
+			onFinishInvoke(true)
+		end
+		return
+	end
+	list = table.clone(list)
+	Util.runProcessAsync(
+		1,
+		function(i: number): number?
+			processor(i, list[i])
+			if i == #list then
+				return nil
+			end
+			return i+1
+		end,
+		budgetMs,
+		onFinishInvoke,
+		isParallel,
+		stepSignal
+	)
+end
+
 function Util.runProcessAsync<V>(
 	initial: V,
 	processor: (v: V) -> V?,
@@ -38,6 +69,9 @@ function Util.runProcessAsync<V>(
 		if not isFired then
 			yieldSignal:Fire()
 		end
+		if onFinishInvoke then
+			onFinishInvoke(nextValue == nil)
+		end
 		yieldSignal:Destroy()
 	end
 
@@ -51,7 +85,7 @@ function Util.runProcessAsync<V>(
 					nextValue = processor(nextValue)
 					step += 1
 				end
-			until tick()-start > budget or nextValue==nil
+			until (step+1)*((tick()-start)/(step)) > budget or nextValue==nil
 			if step == 1 and nextValue then
 				warn(`runProcessAsync: a single process run took longer than ms budget, budget={budgetMs}ms, actual={math.round((tick()-start)*1000*100)/100}ms`)
 			end
