@@ -61,21 +61,26 @@ function Util.runProcessAsync<V>(
 
 	local nextValue: V? = initial
 	stepSignal = stepSignal or (if RunService:IsServer() then RunService.Heartbeat else RunService.RenderStepped)
-	local connection: RBXScriptConnection
-	local yieldSignal = Signal.new()
+	local connection: RBXScriptConnection?
+	local yieldSignal: Signal.Signal?
 	local isFired = false
 	local function cleanUp()
-		connection:Disconnect()
-		if not isFired then
-			yieldSignal:Fire()
+		if connection then
+			connection:Disconnect()
+		end
+		if yieldSignal then
+			if not isFired then
+				yieldSignal:Fire()
+			end
+			yieldSignal:Destroy()
 		end
 		if onFinishInvoke then
 			onFinishInvoke(nextValue == nil)
 		end
-		yieldSignal:Destroy()
 	end
 
-	local budget = budgetMs/1000
+	local budget = budgetMs / 1000
+	local source = debug.traceback("process source", 2)
 	local function onStep()
 		local success, msg = pcall(function()
 			local start = tick()
@@ -87,7 +92,8 @@ function Util.runProcessAsync<V>(
 				end
 			until (step+1)*((tick()-start)/(step)) > budget or nextValue==nil
 			if step == 1 and nextValue then
-				warn(`runProcessAsync: a single process run took longer than ms budget, budget={budgetMs}ms, actual={math.round((tick()-start)*1000*100)/100}ms`)
+				warn(`runProcessAsync: a single process run took longer than ms budget, budget={budgetMs}ms, actual={math.round((tick() - start) * 1000 * 100) / 100}ms`)
+				print(source)
 			end
 		end)
 		if not success then
@@ -99,9 +105,9 @@ function Util.runProcessAsync<V>(
 		end
 	end
 	onStep()
-	if not initial then 
+	if not initial then
 		cleanUp()
-		return 
+		return
 	end
 
 	if isParallel then
@@ -110,10 +116,12 @@ function Util.runProcessAsync<V>(
 		connection = getStepSignal(stepSignal):Connect(onStep)
 	end
 
+	yieldSignal = Signal.new()
+	assert(yieldSignal)
+
 	yieldSignal:Wait()
 	isFired = true
 	cleanUp()
 end
-
 
 return Util
