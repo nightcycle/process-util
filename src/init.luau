@@ -30,15 +30,19 @@ function Util.runProcessAsync<V>(
 
 	local nextValue: V? = initial
 	stepSignal = stepSignal or (if RunService:IsServer() then RunService.Heartbeat else RunService.RenderStepped)
-	local connection: RBXScriptConnection
-	local yieldSignal = Signal.new()
+	local connection: RBXScriptConnection?
+	local yieldSignal: Signal.Signal?
 	local isFired = false
 	local function cleanUp()
-		connection:Disconnect()
-		if not isFired then
-			yieldSignal:Fire()
+		if connection then
+			connection:Disconnect()
 		end
-		yieldSignal:Destroy()
+		if yieldSignal then
+			if not isFired then
+				yieldSignal:Fire()
+			end
+			yieldSignal:Destroy()
+		end
 	end
 
 	local budget = budgetMs/1000
@@ -70,11 +74,15 @@ function Util.runProcessAsync<V>(
 		return 
 	end
 
+
 	if isParallel then
 		connection = getStepSignal(stepSignal):ConnectParallel(onStep)
 	else
 		connection = getStepSignal(stepSignal):Connect(onStep)
 	end
+
+	yieldSignal = Signal.new()
+	assert(yieldSignal)
 
 	yieldSignal:Wait()
 	isFired = true
