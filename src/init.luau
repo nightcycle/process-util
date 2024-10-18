@@ -12,77 +12,59 @@ local Signal = require(_Packages:WaitForChild("Signal"))
 -- Variables
 -- References
 -- Private Functions
-function getStepSignal(stepSignal: RBXScriptSignal?): RBXScriptSignal
-	return if stepSignal then stepSignal elseif RunService:IsServer() then RunService.Heartbeat else RunService.RenderStepped
+function getEvent(event: RBXScriptSignal?): RBXScriptSignal
+	return if event
+		then event
+		elseif RunService:IsClient() then RunService.RenderStepped
+		else RunService.Heartbeat
 end
 
 -- Class
 local Util = {}
 
-function Util.runIteratorAsync<V>(
-	list: {V},
-	processor: (i: number, v: V) -> (),
-	budgetMs: number,
-	onFinishInvoke: ((isComplete: boolean) -> ())?,
-	isParallel: boolean?,
-	stepSignal: RBXScriptSignal?
-): ()
-	if #list == 0 then
-		if onFinishInvoke then
-			onFinishInvoke(true)
-		end
-		return
+Util.IS_DEBUG_WARN_ENABLED = true
+
+function Util.newIteratorRunner<K, V>(
+	dict: { [K]: V },
+	processor: (k: K, v: V) -> boolean?,
+	budgetMs: number
+): () -> boolean
+	local keys: { K } = {}
+	for k in pairs(dict) do
+		table.insert(keys, k)
 	end
-	list = table.clone(list)
-	Util.runProcessAsync(
-		1,
-		function(i: number): number?
-			processor(i, list[i])
-			if i == #list then
-				return nil
-			end
-			return i+1
-		end,
-		budgetMs,
-		onFinishInvoke,
-		isParallel,
-		stepSignal
-	)
+
+	if #keys == 0 then
+		if Util.IS_DEBUG_WARN_ENABLED then
+			warn(`iterator-runner: empty dictionary`)
+		end
+		return function(): boolean
+			return true
+		end
+	end
+
+	return Util.newRecursiveRunner(1, function(i: number): number?
+		local k = keys[i]
+		local result = processor(k, dict[k])
+		if i == #keys or result == true then
+			return nil
+		end
+		return i + 1
+	end, budgetMs)
 end
 
-function Util.runProcessAsync<V>(
+function Util.newRecursiveRunner<V>(
 	initial: V,
 	processor: (v: V) -> V?,
-	budgetMs: number,
-	onFinishInvoke: ((isComplete: boolean) -> ())?,
-	isParallel: boolean?,
-	stepSignal: RBXScriptSignal?
-): ()
-
+	budgetMs: number
+): () -> boolean
 	local nextValue: V? = initial
-	stepSignal = stepSignal or (if RunService:IsServer() then RunService.Heartbeat else RunService.RenderStepped)
-	local connection: RBXScriptConnection?
-	local yieldSignal: Signal.Signal?
-	local isFired = false
-	local function cleanUp()
-		if connection then
-			connection:Disconnect()
-		end
-		if yieldSignal then
-			if not isFired then
-				yieldSignal:Fire()
-			end
-			yieldSignal:Destroy()
-		end
-		if onFinishInvoke then
-			onFinishInvoke(nextValue == nil)
-		end
-	end
-
 	local budget = budgetMs / 1000
+
 	local source = debug.traceback("process source", 2)
-	local function onStep()
-		local success, msg = pcall(function()
+
+	local function onStep(): boolean
+		local _success, _msg = pcall(function()
 			local step = 0
 			local start = tick()
 			local duration = (tick() - start)
@@ -92,38 +74,101 @@ function Util.runProcessAsync<V>(
 					step += 1
 				end
 				duration = (tick() - start)
-			until (step+1)*(duration/(step)) > budget or nextValue==nil
-			if step == 1 and duration > budget and nextValue then
-				warn(`runProcessAsync: a single process run took longer than ms budget, budget={budgetMs}ms, actual={math.round((tick() - start) * 1000 * 100) / 100}ms`)
-				print(source)
+			until nextValue == nil or (step + 1) * (duration / step) > budget
+			if Util.IS_DEBUG_WARN_ENABLED then
+				if step == 1 and duration > budget and nextValue then
+					warn(
+						`runProcessAsync: a single process run took longer than ms budget, budget={budgetMs}ms, actual={math.round(
+							(tick() - start) * 1000 * 100
+						) / 100}ms`
+					)
+					print(source)
+				end
 			end
 		end)
-		if not success then
-			cleanUp()
-			error(msg)
-		end
-		if nextValue == nil then
-			cleanUp()
-		end
-	end
-	onStep()
-	if not initial then
-		cleanUp()
-		return
+		return nextValue ~= nil
 	end
 
-	if isParallel then
-		connection = getStepSignal(stepSignal):ConnectParallel(onStep)
-	else
-		connection = getStepSignal(stepSignal):Connect(onStep)
+	local isComplete = false
+	return function(): boolean
+		if isComplete then
+			return true
+		end
+		isComplete = onStep() == nil
+		return isComplete
 	end
+end
+
+function Util.run<V>(
+	runner: () -> boolean,
+	onFinishInvoke: ((isComplete: boolean) -> ())?,
+	event: RBXScriptSignal?,
+	useConnectParallel: boolean?
+): () -> ()
+	event = getEvent(event)
+	assert(event)
+
+	local connection: RBXScriptConnection?
+
+	local isComplete = false
+
+	local function cleanUp()
+		if connection then
+			connection:Disconnect()
+		end
+		if onFinishInvoke then
+			onFinishInvoke(isComplete)
+		end
+	end
+
+	local function onStep()
+		isComplete = runner()
+		if not runner() then
+			cleanUp()
+		end
+	end
+
+	onStep()
+	if isComplete then
+		cleanUp()
+		return cleanUp
+	end
+
+	if useConnectParallel then
+		connection = event:ConnectParallel(onStep)
+	else
+		connection = event:Connect(onStep)
+	end
+
+	return cleanUp
+end
+
+function Util.runAsync(
+	runner: () -> boolean,
+	onFinishInvoke: ((isComplete: boolean) -> ())?,
+	event: RBXScriptSignal?,
+	useConnectParallel: boolean?
+)
+	local yieldSignal: Signal.Signal?
+	local isFired = false
 
 	yieldSignal = Signal.new()
 	assert(yieldSignal)
 
+	local cleanUp = Util.run(runner, function(isComplete: boolean)
+		if isFired then
+			return
+		end
+		isFired = true
+		yieldSignal:Fire(isComplete)
+		if onFinishInvoke then
+			onFinishInvoke(isComplete)
+		end
+	end, event, useConnectParallel)
+
 	yieldSignal:Wait()
-	isFired = true
 	cleanUp()
+	yieldSignal:Destroy()
 end
 
 return Util
