@@ -13,10 +13,7 @@ local Signal = require(_Packages:WaitForChild("Signal"))
 -- References
 -- Private Functions
 function getEvent(event: RBXScriptSignal?): RBXScriptSignal
-	return if event
-		then event
-		elseif RunService:IsClient() then RunService.RenderStepped
-		else RunService.Heartbeat
+	return if event then event elseif RunService:IsClient() then RunService.RenderStepped else RunService.Heartbeat
 end
 
 -- Class
@@ -24,11 +21,7 @@ local Util = {}
 
 Util.IS_DEBUG_WARN_ENABLED = true
 
-function Util.newIteratorRunner<K, V>(
-	dict: { [K]: V },
-	processor: (k: K, v: V) -> boolean?,
-	budgetMs: number
-): () -> boolean
+function Util.newIteratorRunner<K, V>(dict: { [K]: V }, processor: (k: K, v: V) -> boolean?, budgetMs: number): () -> boolean
 	local keys: { K } = {}
 	for k in pairs(dict) do
 		table.insert(keys, k)
@@ -53,11 +46,7 @@ function Util.newIteratorRunner<K, V>(
 	end, budgetMs)
 end
 
-function Util.newRecursiveRunner<V>(
-	initial: V,
-	processor: (v: V) -> V?,
-	budgetMs: number
-): () -> boolean
+function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetMs: number): () -> boolean
 	local nextValue: V? = initial
 	local budget = budgetMs / 1000
 
@@ -77,11 +66,7 @@ function Util.newRecursiveRunner<V>(
 			until nextValue == nil or (step + 1) * (duration / step) > budget
 			if Util.IS_DEBUG_WARN_ENABLED then
 				if step == 1 and duration > budget and nextValue then
-					warn(
-						`runProcessAsync: a single process run took longer than ms budget, budget={budgetMs}ms, actual={math.round(
-							(tick() - start) * 1000 * 100
-						) / 100}ms`
-					)
+					warn(`runProcessAsync: a single process run took longer than ms budget, budget={budgetMs}ms, actual={math.round((tick() - start) * 1000 * 100) / 100}ms`)
 					print(source)
 				end
 			end
@@ -99,12 +84,7 @@ function Util.newRecursiveRunner<V>(
 	end
 end
 
-function Util.run<V>(
-	runner: () -> boolean,
-	onFinishInvoke: ((isComplete: boolean) -> ())?,
-	event: RBXScriptSignal?,
-	useConnectParallel: boolean?
-): () -> ()
+function Util.run<V>(runner: () -> boolean, onFinishInvoke: ((isComplete: boolean) -> ())?, event: RBXScriptSignal?, useConnectParallel: boolean?): () -> ()
 	event = getEvent(event)
 	assert(event)
 
@@ -143,12 +123,7 @@ function Util.run<V>(
 	return cleanUp
 end
 
-function Util.runAsync(
-	runner: () -> boolean,
-	onFinishInvoke: ((isComplete: boolean) -> ())?,
-	event: RBXScriptSignal?,
-	useConnectParallel: boolean?
-)
+function Util.runAsync(runner: () -> boolean, onFinishInvoke: ((isComplete: boolean) -> ())?, event: RBXScriptSignal?, useConnectParallel: boolean?)
 	local yieldSignal: Signal.Signal?
 	local isFired = false
 
@@ -166,9 +141,12 @@ function Util.runAsync(
 		end
 	end, event, useConnectParallel)
 
-	yieldSignal:Wait()
+	if not isFired then
+		yieldSignal:Wait()
+	end
 	cleanUp()
 	yieldSignal:Destroy()
 end
 
 return Util
+
