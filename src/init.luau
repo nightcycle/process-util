@@ -26,7 +26,7 @@ function Util.newIteratorRunner<K, V>(
 	dict: { [K]: V },
 	processor: (k: K, v: V) -> boolean?,
 	budgetMs: number
-): () -> boolean
+): () -> (boolean, boolean)
 	local keys: { K } = {}
 	for k in pairs(dict) do
 		table.insert(keys, k)
@@ -36,8 +36,8 @@ function Util.newIteratorRunner<K, V>(
 		if Util.IS_DEBUG_WARN_ENABLED then
 			warn(`iterator-runner: empty dictionary`)
 		end
-		return function(): boolean
-			return true
+		return function(): (boolean, boolean)
+			return true, false
 		end
 	end
 
@@ -51,14 +51,22 @@ function Util.newIteratorRunner<K, V>(
 	end, budgetMs)
 end
 
-function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetMs: number): () -> boolean
+function Util.newRecursiveRunner<V>(
+	initial: V,
+	processor: (v: V) -> V?,
+	budgetMs: number
+): () -> (boolean, boolean)
 	local nextValue: V? = initial
 	local budget = budgetMs / 1000
 
 	local source = debug.traceback("process source", 2)
 
+	local isError = false
 	local function onStep(): boolean
-		local _success, _msg = pcall(function()
+		if isError then
+			return true
+		end
+		local success, msg = pcall(function()
 			local step = 0
 			local start = tick()
 			local duration = (tick() - start)
@@ -80,21 +88,25 @@ function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetM
 				end
 			end
 		end)
+		if not success then
+			isError = true
+			error(`{msg}: {source}`)
+		end
 		return nextValue ~= nil
 	end
 
 	local isComplete = false
-	return function(): boolean
+	return function(): (boolean, boolean)
 		if isComplete then
-			return true
+			return true, isError
 		end
 		isComplete = onStep() == nil
-		return isComplete
+		return isComplete, isError
 	end
 end
 
 function Util.run<V>(
-	runner: () -> boolean,
+	runner: () -> (boolean, boolean),
 	onFinishInvoke: ((isComplete: boolean) -> ())?,
 	event: RBXScriptSignal?,
 	useConnectParallel: boolean?
@@ -105,6 +117,7 @@ function Util.run<V>(
 	local connection: RBXScriptConnection?
 
 	local isComplete = false
+	local isError = false
 
 	local function cleanUp()
 		if connection then
@@ -115,8 +128,8 @@ function Util.run<V>(
 		end
 	end
 	local function onStep()
-		isComplete = runner()
-		if isComplete then
+		isComplete, isError = runner()
+		if isComplete or isError then
 			cleanUp()
 		end
 	end
@@ -136,7 +149,7 @@ function Util.run<V>(
 end
 
 function Util.runAsync(
-	runner: () -> boolean,
+	runner: () -> (boolean, boolean),
 	onFinishInvoke: ((isComplete: boolean) -> ())?,
 	event: RBXScriptSignal?,
 	useConnectParallel: boolean?
