@@ -33,7 +33,7 @@ function Util.newIteratorRunner<K, V>(
 	end
 
 	return Util.newRecursiveRunner(1, function(i: number): number?
-		if i >= #keys then
+		if i > #keys then
 			return nil
 		end
 		local k = keys[i]
