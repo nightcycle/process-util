@@ -44,7 +44,7 @@ function Util.newIteratorRunner<K, V>(
 	return Util.newRecursiveRunner(1, function(i: number): number?
 		local k = keys[i]
 		local result = processor(k, dict[k])
-		if i == #keys or result == true then
+		if i >= #keys or result == true then
 			return nil
 		end
 		return i + 1
@@ -84,7 +84,7 @@ function Util.newRecursiveRunner<V>(
 							(tick() - start) * 1000 * 100
 						) / 100}ms`
 					)
-					print(source)
+					warn(source)
 				end
 			end
 		end)
@@ -113,11 +113,11 @@ function Util.run<V>(
 ): () -> ()
 	event = getEvent(event)
 	assert(event)
-
 	local connection: RBXScriptConnection?
 
 	local isComplete = false
 	local isError = false
+	local isAlive = true
 
 	local function cleanUp()
 		if connection then
