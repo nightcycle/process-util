@@ -84,7 +84,6 @@ function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetM
 	end
 
 	local isComplete = false
-	local source = debug.traceback("source", 2)
 	return function(): boolean
 		if isComplete then
 			return true
