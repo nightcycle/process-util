@@ -100,17 +100,15 @@ function Util.run<V>(runner: () -> boolean, onFinishInvoke: ((isComplete: boolea
 			onFinishInvoke(isComplete)
 		end
 	end
-
 	local function onStep()
 		isComplete = runner()
-		if not runner() then
+		if isComplete then
 			cleanUp()
 		end
 	end
 
 	onStep()
 	if isComplete then
-		cleanUp()
 		return cleanUp
 	end
 
