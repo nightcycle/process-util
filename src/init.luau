@@ -36,7 +36,7 @@ function Util.newIteratorRunner<K, V>(
 		local k = keys[i]
 		if k == nil then return nil end
 		local result = processor(k, dict[k])
-		if i == #keys or result == true then
+		if i >= #keys or result == true then
 			return nil
 		end
 		return i + 1
