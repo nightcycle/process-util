@@ -88,7 +88,7 @@ function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetM
 		if isComplete then
 			return true
 		end
-		isComplete = onStep() == nil
+		isComplete = not onStep()
 		return isComplete
 	end
 end
