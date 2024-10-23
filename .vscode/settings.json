@@ -1,0 +1,45 @@
+{
+	"editor.formatOnSave": true,
+	"[github-actions-workflow]": {
+		"editor.tabSize": 2,
+		"editor.insertSpaces": true,
+		"editor.detectIndentation": false
+	},
+	"files.exclude": {
+		"**.env": true,
+		".secrets/**": true,
+		"lints": true,
+		"docs": true,
+		"out": true,
+		"refs": true,
+		".bin": true,
+		"types": true,
+		".mypy_cache": true,
+		"Packages": true,
+		"serve": true,
+		"sourcemap.json": true,
+		"*.rbxl": true,
+		"*.blend": true,
+		"*.blend1": true,
+		"build": true,
+		"default.project.json": true,
+	},
+	"runOnSave.defaultRunIn": "terminal",
+	"runOnSave.shell": "C:/Program Files/Git/bin/bash.exe",
+	"runOnSave.statusMessageTimeout": 30000,
+	"runOnSave.onlyRunOnManualSave": false,
+
+	"stylua.targetReleaseVersion": "latest",
+	"luau-lsp.require.mode": "relativeToFile",
+	"luau-lsp.require.directoryAliases": {
+		"@client": "src/Client",
+		"@first": "src/First",
+		"@shared": "src/Shared",
+		"@server": "src/Server",
+		"@wally": "Packages",
+		"@lune/": "~/.lune/.typedefs/0.8.8/"
+	},
+	"[luau]": {
+		"editor.defaultFormatter": "JohnnyMorganz.stylua"
+	}
+}
