@@ -31,10 +31,10 @@ function Util.newIteratorRunner<K, V>(
 	for k in pairs(dict) do
 		table.insert(keys, k)
 	end
-
+	
 	if #keys == 0 then
-		if Util.IS_DEBUG_WARN_ENABLED then
-			warn(`iterator-runner: empty dictionary`)
+		if Util.IS_DEBUG_WARN_ENABLED then			
+			warn(debug.traceback("iterator-runner: empty dictionary", 2))
 		end
 		return function(): boolean
 			return true
@@ -76,7 +76,7 @@ function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetM
 							(tick() - start) * 1000 * 100
 						) / 100}ms`
 					)
-					print(source)
+					warn(source)
 				end
 			end
 		end)
@@ -84,11 +84,12 @@ function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetM
 	end
 
 	local isComplete = false
+	local source = debug.traceback("source", 2)
 	return function(): boolean
 		if isComplete then
 			return true
 		end
-		isComplete = not onStep()
+		isComplete = onStep()
 		return isComplete
 	end
 end
@@ -107,6 +108,7 @@ function Util.run<V>(
 	local isComplete = false
 
 	local function cleanUp()
+		
 		if connection then
 			connection:Disconnect()
 		end
@@ -115,7 +117,8 @@ function Util.run<V>(
 		end
 	end
 	local function onStep()
-		isComplete = runner()
+		isComplete = not runner()
+		
 		if isComplete then
 			cleanUp()
 		end
@@ -123,6 +126,7 @@ function Util.run<V>(
 
 	onStep()
 	if isComplete then
+		
 		return cleanUp
 	end
 
@@ -131,7 +135,7 @@ function Util.run<V>(
 	else
 		connection = event:Connect(onStep)
 	end
-
+	
 	return cleanUp
 end
 
@@ -166,3 +170,4 @@ function Util.runAsync(
 end
 
 return Util
+
