@@ -34,7 +34,7 @@ function Util.newIteratorRunner<K, V>(
 
 	return Util.newRecursiveRunner(1, function(i: number): number?
 		local k = keys[i]
-		if not k then return nil end
+		if k == nil then return nil end
 		local result = processor(k, dict[k])
 		if i == #keys or result == true then
 			return nil
