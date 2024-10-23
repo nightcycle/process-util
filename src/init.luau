@@ -26,22 +26,16 @@ function Util.newIteratorRunner<K, V>(
 	dict: { [K]: V },
 	processor: (k: K, v: V) -> boolean?,
 	budgetMs: number
-): () -> (boolean, boolean)
+): () -> boolean
 	local keys: { K } = {}
 	for k in pairs(dict) do
 		table.insert(keys, k)
 	end
 
-	if #keys == 0 then
-		if Util.IS_DEBUG_WARN_ENABLED then
-			warn(`iterator-runner: empty dictionary`)
-		end
-		return function(): (boolean, boolean)
-			return true, false
-		end
-	end
-
 	return Util.newRecursiveRunner(1, function(i: number): number?
+		if i >= #keys then
+			return nil
+		end
 		local k = keys[i]
 		local result = processor(k, dict[k])
 		if i >= #keys or result == true then
@@ -62,9 +56,9 @@ function Util.newRecursiveRunner<V>(
 	local source = debug.traceback("process source", 2)
 
 	local isError = false
-	local function onStep(): boolean
+	local function onStep()
 		if isError then
-			return true
+			return
 		end
 		local success, msg = pcall(function()
 			local step = 0
@@ -92,16 +86,14 @@ function Util.newRecursiveRunner<V>(
 			isError = true
 			error(`{msg}: {source}`)
 		end
-		return nextValue ~= nil
 	end
 
-	local isComplete = false
 	return function(): (boolean, boolean)
-		if isComplete then
-			return true, isError
+		if nextValue ~= nil then
+			onStep()
 		end
-		isComplete = onStep() == nil
-		return isComplete, isError
+		local isWorking = nextValue ~= nil
+		return isWorking, isError
 	end
 end
 
@@ -116,7 +108,6 @@ function Util.run<V>(
 	local connection: RBXScriptConnection?
 
 	local isComplete = false
-	local isError = false
 	local isAlive = true
 
 	local function cleanUp()
@@ -132,8 +123,7 @@ function Util.run<V>(
 		end
 	end
 	local function onStep()
-		local isWorking: boolean
-		isWorking, isError = runner()
+		local isWorking, isError = runner()
 		isComplete = not isWorking
 		if isComplete or isError then
 			cleanUp()
@@ -141,7 +131,7 @@ function Util.run<V>(
 	end
 
 	onStep()
-	if isComplete then
+	if isComplete or not isAlive then
 		return cleanUp
 	end
 
