@@ -120,6 +120,10 @@ function Util.run<V>(
 	local isAlive = true
 
 	local function cleanUp()
+		if not isAlive then
+			return
+		end
+		isAlive = false
 		if connection then
 			connection:Disconnect()
 		end
@@ -128,7 +132,9 @@ function Util.run<V>(
 		end
 	end
 	local function onStep()
-		isComplete, isError = runner()
+		local isWorking: boolean
+		isWorking, isError = runner()
+		isComplete = not isWorking
 		if isComplete or isError then
 			cleanUp()
 		end
