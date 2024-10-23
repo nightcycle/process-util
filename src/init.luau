@@ -119,7 +119,7 @@ function Util.run<V>(
 	end
 
 	onStep()
-	if isComplete then
+	if isComplete or not isAlive then
 		
 		return cleanUp
 	end
