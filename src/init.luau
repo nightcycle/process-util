@@ -26,7 +26,7 @@ function Util.newIteratorRunner<K, V>(
 	dict: { [K]: V },
 	processor: (k: K, v: V) -> boolean?,
 	budgetMs: number
-): () -> boolean
+): () -> (boolean, boolean)
 	local keys: { K } = {}
 	for k in pairs(dict) do
 		table.insert(keys, k)
