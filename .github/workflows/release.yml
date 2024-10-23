@@ -63,19 +63,18 @@ jobs:
       - name: validate project
         run: sh scripts/validate.sh --wally
 
-      - name: build
-        run: sh scripts/build.sh --wally
-
       - name: Update version and labels
         shell: bash
         run: |
-          cd build
           repo_owner="${{needs.get_published_release.outputs.repo_owner_name}}"
           repo_name="${{needs.get_published_release.outputs.repo_name}}"
           repo_desc=${{needs.get_published_release.outputs.repo_desc}}
           goal_version_str="${{needs.get_published_release.outputs.tag_name}}"
 
           sh scripts/release/wally.sh "$repo_owner" "$repo_name" "$repo_desc" "$goal_version_str" "${{env.ROJO_CONFIG}}"
+
+      - name: build
+        run: sh scripts/build.sh --wally
 
       - name: Upload ${{env.RBXL_FILE}} file to release
         uses: actions/upload-release-asset@v1
