@@ -88,7 +88,7 @@ function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetM
 		if isComplete then
 			return true
 		end
-		isComplete = onStep()
+		isComplete = not onStep()
 		return isComplete
 	end
 end
@@ -116,7 +116,7 @@ function Util.run<V>(
 		end
 	end
 	local function onStep()
-		isComplete = not runner()
+		isComplete = runner()
 		
 		if isComplete then
 			cleanUp()
