@@ -40,7 +40,8 @@ function Util.newIteratorRunner<K, V>(
 			return true
 		end
 	end
-
+	
+	
 	return Util.newRecursiveRunner(1, function(i: number): number?
 		local k = keys[i]
 		local result = processor(k, dict[k])
@@ -54,11 +55,11 @@ end
 function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetMs: number): () -> boolean
 	local nextValue: V? = initial
 	local budget = budgetMs / 1000
-
+	
 	local source = debug.traceback("process source", 2)
 
-	local function onStep(): boolean
-		local _success, _msg = pcall(function()
+	local function onStep()
+		local success, msg = pcall(function()
 			local step = 0
 			local start = tick()
 			local duration = (tick() - start)
@@ -80,16 +81,16 @@ function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetM
 				end
 			end
 		end)
-		return nextValue ~= nil
+		if not success then
+			warn(msg)
+		end
 	end
 
-	local isComplete = false
 	return function(): boolean
-		if isComplete then
-			return true
+		if nextValue ~= nil then
+			onStep()
 		end
-		isComplete = not onStep()
-		return not isComplete
+		return nextValue ~= nil
 	end
 end
 
@@ -101,13 +102,16 @@ function Util.run<V>(
 ): () -> ()
 	event = getEvent(event)
 	assert(event)
-
 	local connection: RBXScriptConnection?
 
 	local isComplete = false
+	local isAlive = true
 
 	local function cleanUp()
-		
+		if not isAlive then 
+			return
+		end
+		isAlive = false
 		if connection then
 			connection:Disconnect()
 		end
@@ -116,9 +120,9 @@ function Util.run<V>(
 		end
 	end
 	local function onStep()
-		isComplete = runner()
+		isComplete = not runner()
 		
-		if not isComplete then
+		if isComplete then
 			cleanUp()
 		end
 	end
