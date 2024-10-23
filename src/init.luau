@@ -31,19 +31,10 @@ function Util.newIteratorRunner<K, V>(
 	for k in pairs(dict) do
 		table.insert(keys, k)
 	end
-	
-	if #keys == 0 then
-		if Util.IS_DEBUG_WARN_ENABLED then			
-			warn(debug.traceback("iterator-runner: empty dictionary", 2))
-		end
-		return function(): boolean
-			return true
-		end
-	end
-	
-	
+
 	return Util.newRecursiveRunner(1, function(i: number): number?
 		local k = keys[i]
+		if not k then return nil end
 		local result = processor(k, dict[k])
 		if i == #keys or result == true then
 			return nil
