@@ -91,5 +91,4 @@ jobs:
         run: |
           cd build
           set -e
-          wally login --token "${{secrets.WALLY_TOKEN}}"
-          wally publish
+          wally publish --token "${{secrets.WALLY_OAUTH}}"
