@@ -45,3 +45,4 @@ rojo_config_contents=$(echo "$rojo_config_contents" | awk -v target="$target_jso
 echo "$rojo_config_contents" > "$ROJO_CONFIG"
 
 echo "$rojo_config_contents"
+echo "$wally_toml_contents"
