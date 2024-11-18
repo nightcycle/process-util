@@ -146,14 +146,14 @@ function Util.run<V>(
 	return cleanUp
 end
 
--- runs a runner, yielding the thread until it's complete
+-- runs a runner, yielding the thread until it's complete. Returns whether the runner completed successfully
 function Util.runAsync(
 	runner: () -> (boolean, boolean),
 	onFinishInvoke: ((isComplete: boolean) -> ())?,
 	event: RBXScriptSignal?,
 	useConnectParallel: boolean?
-)
-	local yieldSignal: Signal.Signal<()>?
+): boolean
+	local yieldSignal: Signal.Signal<boolean>?
 	local isFired = false
 
 	yieldSignal = Signal.new()
@@ -170,11 +170,14 @@ function Util.runAsync(
 		end
 	end, event, useConnectParallel)
 
+	local isComplete: boolean?
 	if not isFired then
-		yieldSignal:Wait()
+		isComplete = yieldSignal:Wait()
 	end
 	cleanUp()
 	yieldSignal:Destroy()
+	assert(isComplete ~= nil)
+	return isComplete
 end
 
 return Util
