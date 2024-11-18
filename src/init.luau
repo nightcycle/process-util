@@ -11,10 +11,7 @@ local Signal = require("@wally/Signal")
 -- References
 -- Private Functions
 function getEvent(event: RBXScriptSignal?): RBXScriptSignal
-	return if event
-		then event
-		elseif RunService:IsClient() then RunService.RenderStepped
-		else RunService.Heartbeat
+	return if event then event elseif RunService:IsClient() then RunService.RenderStepped else RunService.Heartbeat
 end
 
 -- Class
@@ -24,7 +21,7 @@ Util.IS_DEBUG_WARN_ENABLED = true
 
 function Util.newIteratorRunner<K, V>(
 	dict: { [K]: V },
-	processor: (k: K, v: V) -> boolean?,
+	processor: (k: K, v: V) -> true?,
 	budgetMs: number
 ): () -> (boolean, boolean)
 	local keys: { K } = {}
@@ -45,11 +42,7 @@ function Util.newIteratorRunner<K, V>(
 	end, budgetMs)
 end
 
-function Util.newRecursiveRunner<V>(
-	initial: V,
-	processor: (v: V) -> V?,
-	budgetMs: number
-): () -> (boolean, boolean)
+function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetMs: number): () -> (boolean, boolean)
 	local nextValue: V? = initial
 	local budget = budgetMs / 1000
 
@@ -66,7 +59,13 @@ function Util.newRecursiveRunner<V>(
 			local duration = (tick() - start)
 			repeat
 				if nextValue ~= nil then
-					nextValue = processor(nextValue)
+					local thr = task.spawn(function()
+						nextValue = processor(nextValue)
+					end)
+					if coroutine.status(thr) ~= "dead" then
+						error(`process yielded instead of finishing: {source}`)
+					end
+					-- nextValue = processor(nextValue)
 					step += 1
 				end
 				duration = (tick() - start)
@@ -150,7 +149,7 @@ function Util.runAsync(
 	event: RBXScriptSignal?,
 	useConnectParallel: boolean?
 )
-	local yieldSignal: Signal.Signal?
+	local yieldSignal: Signal.Signal<()>?
 	local isFired = false
 
 	yieldSignal = Signal.new()
