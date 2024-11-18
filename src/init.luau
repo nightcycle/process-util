@@ -10,15 +10,16 @@ local Signal = require("@wally/Signal")
 -- Variables
 -- References
 -- Private Functions
-function getEvent(event: RBXScriptSignal?): RBXScriptSignal
+function getDefaultEvent(event: RBXScriptSignal?): RBXScriptSignal
 	return if event then event elseif RunService:IsClient() then RunService.RenderStepped else RunService.Heartbeat
 end
 
 -- Class
 local Util = {}
 
-Util.IS_DEBUG_WARN_ENABLED = true
+Util.IS_DEBUG_WARN_ENABLED = true -- set to false to disable debug warnings, such as when a single process run takes longer than the budget
 
+-- creates a runner that iterates over a table, to break early return "true" otherwise return nil
 function Util.newIteratorRunner<K, V>(
 	dict: { [K]: V },
 	processor: (k: K, v: V) -> true?,
@@ -42,6 +43,7 @@ function Util.newIteratorRunner<K, V>(
 	end, budgetMs)
 end
 
+-- creates a runner that runs recursively, to break early return nil otherwise return the next value
 function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetMs: number): () -> (boolean, boolean)
 	local nextValue: V? = initial
 	local budget = budgetMs / 1000
@@ -96,13 +98,14 @@ function Util.newRecursiveRunner<V>(initial: V, processor: (v: V) -> V?, budgetM
 	end
 end
 
+-- runs a runner via an event, the calling thread will not yield
 function Util.run<V>(
 	runner: () -> (boolean, boolean),
 	onFinishInvoke: ((isComplete: boolean) -> ())?,
 	event: RBXScriptSignal?,
 	useConnectParallel: boolean?
 ): () -> ()
-	event = getEvent(event)
+	event = getDefaultEvent(event)
 	assert(event)
 	local connection: RBXScriptConnection?
 
@@ -143,6 +146,7 @@ function Util.run<V>(
 	return cleanUp
 end
 
+-- runs a runner, yielding the thread until it's complete
 function Util.runAsync(
 	runner: () -> (boolean, boolean),
 	onFinishInvoke: ((isComplete: boolean) -> ())?,
